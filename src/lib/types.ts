@@ -40,3 +40,15 @@ export interface AppData {
   habits: Habit[];
   sessions: FocusSession[];
 }
+
+export type PomodoroMode = "focus" | "short" | "long";
+
+export interface PomodoroTimerState {
+  mode: PomodoroMode;
+  secondsLeft: number;
+  running: boolean;
+  startTimestamp: number | null;
+  endTimestamp: number | null;
+  completedFocus: number;
+  lastCompletedEnd?: number | null;
+}

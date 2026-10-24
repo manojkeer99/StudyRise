@@ -34,6 +34,9 @@ function NavButton({
   pendingCount,
   setView,
   compact,
+  timerFormatted,
+  timerRunning,
+  timerActive,
 }: {
   id: View;
   label: string;
@@ -43,6 +46,9 @@ function NavButton({
   pendingCount: number;
   setView: (v: View) => void;
   compact?: boolean;
+  timerFormatted?: string;
+  timerRunning?: boolean;
+  timerActive?: boolean;
 }) {
   if (compact) {
     return (
@@ -58,6 +64,19 @@ function NavButton({
         {id === "tasks" && pendingCount > 0 && (
           <span className="absolute right-[18%] top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[8px] font-bold text-white">
             {pendingCount > 9 ? "9+" : pendingCount}
+          </span>
+        )}
+        {id === "focus" && timerActive && (
+          <span
+            className={cn(
+              "absolute -top-1 right-[10%] flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[8px] font-bold tabular-nums",
+              timerRunning
+                ? "bg-emerald-500 text-emerald-950 shadow-sm shadow-emerald-500/50"
+                : "bg-zinc-700 text-zinc-200"
+            )}
+          >
+            {timerRunning && <span className="h-1 w-1 rounded-full bg-emerald-950 animate-pulse" />}
+            {timerFormatted}
           </span>
         )}
       </button>
@@ -80,6 +99,19 @@ function NavButton({
         )}
       />
       {label}
+      {id === "focus" && timerActive && !active && (
+        <span
+          className={cn(
+            "ml-auto flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-bold tabular-nums",
+            timerRunning
+              ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+              : "bg-white/[0.06] text-zinc-400"
+          )}
+        >
+          {timerRunning && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          {timerFormatted}
+        </span>
+      )}
       {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />}
       {id === "tasks" && !active && pendingCount > 0 && (
         <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500/15 px-1.5 text-[10px] font-bold text-rose-400 ring-1 ring-rose-500/25">
@@ -96,12 +128,18 @@ export function Sidebar({
   dayProgress,
   bestStreak,
   pendingCount,
+  timerFormatted,
+  timerRunning,
+  timerActive,
 }: {
   view: View;
   setView: (v: View) => void;
   dayProgress: number;
   bestStreak: number;
   pendingCount: number;
+  timerFormatted?: string;
+  timerRunning?: boolean;
+  timerActive?: boolean;
 }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-white/[0.06] p-5 lg:flex">
@@ -126,6 +164,9 @@ export function Sidebar({
             active={view === n.id}
             pendingCount={pendingCount}
             setView={setView}
+            timerFormatted={timerFormatted}
+            timerRunning={timerRunning}
+            timerActive={timerActive}
           />
         ))}
       </nav>
@@ -157,10 +198,16 @@ export function MobileNav({
   view,
   setView,
   pendingCount,
+  timerFormatted,
+  timerRunning,
+  timerActive,
 }: {
   view: View;
   setView: (v: View) => void;
   pendingCount: number;
+  timerFormatted?: string;
+  timerRunning?: boolean;
+  timerActive?: boolean;
 }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-zinc-950/85 backdrop-blur-xl lg:hidden">
@@ -173,6 +220,9 @@ export function MobileNav({
             active={view === n.id}
             pendingCount={pendingCount}
             setView={setView}
+            timerFormatted={timerFormatted}
+            timerRunning={timerRunning}
+            timerActive={timerActive}
           />
         ))}
       </div>
@@ -184,10 +234,16 @@ export function MobileHeader({
   level,
   pendingCount,
   setView,
+  timerFormatted,
+  timerRunning,
+  timerActive,
 }: {
   level: number;
   pendingCount: number;
   setView: (v: View) => void;
+  timerFormatted?: string;
+  timerRunning?: boolean;
+  timerActive?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-2.5 px-5 pt-5 lg:hidden">
@@ -200,6 +256,22 @@ export function MobileHeader({
       <div className="flex items-center gap-2">
         <ThemeToggle />
         <SyncStatus compact />
+        {timerActive && (
+          <button
+            onClick={() => setView("focus")}
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-bold transition",
+              timerRunning
+                ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+                : "bg-white/[0.05] text-zinc-300 ring-1 ring-white/10"
+            )}
+            title="Focus Timer - Tap to view"
+          >
+            <Timer className="h-4 w-4" />
+            <span className="tabular-nums">{timerFormatted}</span>
+            {timerRunning && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          </button>
+        )}
         <button
           onClick={() => setView("tasks")}
           className="relative hidden h-9 items-center gap-1.5 rounded-xl bg-white/[0.05] px-3 text-xs font-semibold text-zinc-300 ring-1 ring-white/10 xs:flex sm:flex"

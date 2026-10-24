@@ -1,0 +1,6 @@
+{
+  "name": "StudyRise",
+  "description": "Student productivity cockpit and Pomodoro focus tracker with leaderboard, habits, and tasks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

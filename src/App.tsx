@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppData, Habit, Priority, View } from "./lib/types";
 import { buildStarter } from "./lib/seed";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { usePomodoroTimer, POMODORO_DURATIONS } from "./hooks/usePomodoroTimer";
 import { todayKey, dateKey, addDays, uid, currentStreak } from "./lib/date";
 import { evaluateBadges, totalPoints, type BadgeDef } from "./lib/badges";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -112,6 +113,19 @@ function Workspace() {
     }));
   }, [setData]);
 
+  /* ---------------- Persistent Pomodoro Timer ---------------- */
+  const {
+    timerState,
+    toggleRunning,
+    reset: resetTimer,
+    skip: skipTimer,
+    switchMode: switchTimerMode,
+    formattedTime,
+  } = usePomodoroTimer(user!.uid, logSession);
+
+  const timerActive =
+    timerState.running || timerState.secondsLeft < POMODORO_DURATIONS[timerState.mode];
+
   /* ------------- Badge detection ------------- */
   const badges = useMemo(() => evaluateBadges(data), [data]);
 
@@ -162,6 +176,9 @@ function Workspace() {
         dayProgress={dayProgress}
         bestStreak={bestStreak}
         pendingCount={pendingCount}
+        timerFormatted={formattedTime.text}
+        timerRunning={timerState.running}
+        timerActive={timerActive}
       />
 
       <div className="min-w-0 flex-1">
@@ -169,8 +186,39 @@ function Workspace() {
           level={badges.filter((b) => b.unlocked).length}
           pendingCount={pendingCount}
           setView={setView}
+          timerFormatted={formattedTime.text}
+          timerRunning={timerState.running}
+          timerActive={timerActive}
         />
         <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-8 lg:pb-14 lg:pt-9">
+          {/* Persistent timer active banner when viewing any other section */}
+          {timerState.running && view !== "focus" && (
+            <div className="animate-fade-up mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.08] p-3 sm:px-5 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-semibold text-emerald-300">
+                  {timerState.mode === "focus"
+                    ? "Focus timer active"
+                    : timerState.mode === "short"
+                      ? "Short break active"
+                      : "Long break active"}
+                </span>
+                <span className="rounded-lg bg-emerald-500/20 px-2.5 py-1 font-display text-sm font-bold tabular-nums text-emerald-300">
+                  {formattedTime.text}
+                </span>
+              </div>
+              <button
+                onClick={() => setView("focus")}
+                className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 transition hover:text-emerald-300"
+              >
+                Open timer →
+              </button>
+            </div>
+          )}
+
           {view === "dashboard" && (
             <Dashboard
               data={data}
@@ -198,11 +246,28 @@ function Workspace() {
               deleteHabit={deleteHabit}
             />
           )}
-          {view === "focus" && <FocusView sessions={data.sessions} logSession={logSession} />}
+          {view === "focus" && (
+            <FocusView
+              sessions={data.sessions}
+              logSession={logSession}
+              timerState={timerState}
+              onToggleRunning={toggleRunning}
+              onReset={resetTimer}
+              onSkip={skipTimer}
+              onSwitchMode={switchTimerMode}
+            />
+          )}
         </main>
       </div>
 
-      <MobileNav view={view} setView={setView} pendingCount={pendingCount} />
+      <MobileNav
+        view={view}
+        setView={setView}
+        pendingCount={pendingCount}
+        timerFormatted={formattedTime.text}
+        timerRunning={timerState.running}
+        timerActive={timerActive}
+      />
       <NewBadgeToast badges={celebrate} onDismiss={dismissBadge} />
     </div>
   );

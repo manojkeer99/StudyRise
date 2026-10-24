@@ -1,117 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Play, Pause, RotateCcw, SkipForward, Timer, Coffee, Brain, CheckCircle2 } from "lucide-react";
-import type { FocusSession } from "../lib/types";
+import type { FocusSession, PomodoroMode, PomodoroTimerState } from "../lib/types";
+import { POMODORO_DURATIONS } from "../hooks/usePomodoroTimer";
 import { todayKey } from "../lib/date";
 import { Ring } from "./ui";
 import { cn } from "../utils/cn";
 
-type Mode = "focus" | "short" | "long";
-
-const DURATIONS: Record<Mode, number> = {
-  focus: 25 * 60,
-  short: 5 * 60,
-  long: 15 * 60,
-};
-
-const MODE_META: Record<Mode, { label: string; icon: typeof Timer; color: string; glow: string }> = {
+const MODE_META: Record<PomodoroMode, { label: string; icon: typeof Timer; color: string; glow: string }> = {
   focus: { label: "Focus", icon: Brain, color: "#10b981", glow: "rgba(16,185,129,0.18)" },
   short: { label: "Short break", icon: Coffee, color: "#0ea5e9", glow: "rgba(14,165,233,0.18)" },
   long: { label: "Long break", icon: Coffee, color: "#8b5cf6", glow: "rgba(139,92,246,0.18)" },
 };
 
-function chime() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const notes = [523.25, 659.25, 783.99];
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.18);
-      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + i * 0.18 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.5);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime + i * 0.18);
-      osc.stop(ctx.currentTime + i * 0.18 + 0.55);
-    });
-  } catch {
-    /* audio unavailable */
-  }
+export interface FocusViewProps {
+  sessions: FocusSession[];
+  logSession: (minutes: number) => void;
+  timerState: PomodoroTimerState;
+  onToggleRunning: () => void;
+  onReset: () => void;
+  onSkip: () => void;
+  onSwitchMode: (mode: PomodoroMode) => void;
 }
 
 export function FocusView({
   sessions,
-  logSession,
-}: {
-  sessions: FocusSession[];
-  logSession: (minutes: number) => void;
-}) {
-  const [mode, setMode] = useState<Mode>("focus");
-  const [secondsLeft, setSecondsLeft] = useState(DURATIONS.focus);
-  const [running, setRunning] = useState(false);
-  const [completedFocus, setCompletedFocus] = useState(0);
-  const intervalRef = useRef<number | null>(null);
-  const handledRef = useRef(false);
+  timerState,
+  onToggleRunning,
+  onReset,
+  onSkip,
+  onSwitchMode,
+}: FocusViewProps) {
+  const { mode, secondsLeft, running, completedFocus } = timerState;
 
   const today = todayKey();
   const todays = sessions.filter((s) => s.date === today);
   const minutesToday = todays.reduce((a, s) => a + s.minutes, 0);
 
-  const switchMode = useCallback((next: Mode) => {
-    handledRef.current = false;
-    setMode(next);
-    setSecondsLeft(DURATIONS[next]);
-    setRunning(false);
-  }, []);
-
-  // tick
-  useEffect(() => {
-    if (!running) return;
-    intervalRef.current = window.setInterval(() => {
-      setSecondsLeft((s) => s - 1);
-    }, 1000);
-    return () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-    };
-  }, [running]);
-
-  // completion
-  useEffect(() => {
-    if (secondsLeft !== 0 || handledRef.current) return;
-    handledRef.current = true;
-    setRunning(false);
-    chime();
-    if (mode === "focus") {
-      logSession(DURATIONS.focus / 60);
-      const count = completedFocus + 1;
-      setCompletedFocus(count);
-    }
-    // auto-suggest the next mode
-    const next: Mode =
-      mode === "focus"
-        ? (completedFocus + 1) % 4 === 0
-          ? "long"
-          : "short"
-        : "focus";
-    window.setTimeout(() => switchMode(next), 400);
-  }, [secondsLeft, mode, completedFocus, logSession, switchMode]);
-
-  const reset = () => {
-    handledRef.current = false;
-    setRunning(false);
-    setSecondsLeft(DURATIONS[mode]);
-  };
-
-  const skip = () => {
-    const next: Mode = mode === "focus" ? "short" : "focus";
-    switchMode(next);
-  };
-
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const ss = String(secondsLeft % 60).padStart(2, "0");
-  const progress = 1 - secondsLeft / DURATIONS[mode];
+  const progress = 1 - secondsLeft / POMODORO_DURATIONS[mode];
   const meta = MODE_META[mode];
   const ModeIcon = meta.icon;
 
@@ -132,12 +58,12 @@ export function FocusView({
 
         {/* Mode switch */}
         <div className="relative mx-auto flex w-fit rounded-2xl bg-black/40 p-1 ring-1 ring-white/[0.08]">
-          {(Object.keys(MODE_META) as Mode[]).map((m) => {
+          {(Object.keys(MODE_META) as PomodoroMode[]).map((m) => {
             const M = MODE_META[m];
             return (
               <button
                 key={m}
-                onClick={() => switchMode(m)}
+                onClick={() => onSwitchMode(m)}
                 className={cn(
                   "flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold transition sm:px-5",
                   mode === m ? "bg-white/10 text-white shadow ring-1 ring-white/10" : "text-zinc-500 hover:text-zinc-300"
@@ -169,14 +95,14 @@ export function FocusView({
         {/* Controls */}
         <div className="relative mt-10 flex items-center justify-center gap-4">
           <button
-            onClick={reset}
+            onClick={onReset}
             aria-label="Reset timer"
             className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] text-zinc-300 ring-1 ring-white/10 transition hover:bg-white/[0.1]"
           >
             <RotateCcw className="h-5 w-5" />
           </button>
           <button
-            onClick={() => setRunning((r) => !r)}
+            onClick={onToggleRunning}
             className={cn(
               "flex h-16 items-center gap-2.5 rounded-2xl px-10 text-lg font-bold shadow-xl transition",
               running ? "bg-white text-zinc-900 hover:bg-zinc-200" : "text-zinc-950 hover:brightness-110"
@@ -187,7 +113,7 @@ export function FocusView({
             {running ? "Pause" : "Start"}
           </button>
           <button
-            onClick={skip}
+            onClick={onSkip}
             aria-label="Skip to next phase"
             className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] text-zinc-300 ring-1 ring-white/10 transition hover:bg-white/[0.1]"
           >
